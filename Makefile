@@ -5,7 +5,7 @@ test:
 	@go test -v ./...
 
 run: build
-	@./web_projects/ecommerce-api
+	@./web_projects/chat-app-api
 
 migration:
 	@migrate create -ext sql -dir cmd/migrate/migrations $(filter-out $@,$(MAKECMDGOALS))
