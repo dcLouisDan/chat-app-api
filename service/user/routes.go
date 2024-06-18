@@ -9,7 +9,7 @@ import (
 	"github.com/dclouisDan/chat-app-api/service/auth"
 	"github.com/dclouisDan/chat-app-api/types"
 	"github.com/dclouisDan/chat-app-api/utils"
-	"github.com/go-playground/validator"
+	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
 )
 
@@ -24,8 +24,10 @@ func NewHandler(store types.UserStore) *Handler {
 func (h *Handler) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/login", h.handleLogin).Methods(http.MethodPost)
 	router.HandleFunc("/register", h.handleRegister).Methods(http.MethodPost)
+  router.HandleFunc("/profile", auth.WithJWTAuth(h.handleProfile, h.store)).Methods(http.MethodGet)
 }
 
+// User Login
 func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
 	var payload types.LoginUserPayload
 
@@ -68,6 +70,7 @@ func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// User Registration
 func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
 	var payload types.RegisterUserPayload
 
@@ -112,4 +115,21 @@ func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("Write JSON error: %s", err.Error())
 	}
+}
+
+// Account profile
+func (h *Handler) handleProfile(w http.ResponseWriter, r *http.Request) {
+  userID := auth.GetIDFromContext(r.Context())
+
+  u, err := h.store.GetUserByID(userID)
+  if err != nil {
+    utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("user no found"))
+    return
+  }
+  
+  err = utils.WriteJSON(w, http.StatusCreated, u)
+	if err != nil {
+		log.Printf("Write JSON error: %s", err.Error())
+	}
+
 }
