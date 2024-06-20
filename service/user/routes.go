@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/dclouisDan/chat-app-api/config"
 	"github.com/dclouisDan/chat-app-api/service/auth"
@@ -58,11 +59,18 @@ func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	secret := []byte(config.Envs.JWTSecret)
-	token, err := auth.CreateJWT(secret, u.ID)
+	token, expireAt,err := auth.CreateJWT(secret, u.ID)
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
 	}
+
+  http.SetCookie(w, &http.Cookie{
+    Name: "token",
+    Value: token,
+    Expires: time.Unix(expireAt, 0),
+    HttpOnly: true,
+  })
 
 	err = utils.WriteJSON(w, http.StatusOK, map[string]string{"token": token})
 	if err != nil {

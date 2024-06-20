@@ -18,19 +18,20 @@ type contextKey string
 
 const UserKey contextKey = "userID"
 
-func CreateJWT(secret []byte, userID int) (string, error) {
+func CreateJWT(secret []byte, userID int) (string, int64, error) {
 	expiration := time.Second * time.Duration(config.Envs.JWTExpirationInSeconds)
+	expireAt := time.Now().Add(expiration).Unix()
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"userID":    strconv.Itoa(userID),
-		"expiredAt": time.Now().Add(expiration).Unix(),
+		"expiredAt": expireAt,
 	})
 
 	tokenString, err := token.SignedString(secret)
 	if err != nil {
-		return "", nil
+		return "", 0, nil
 	}
-	return tokenString, nil
+	return tokenString, expireAt, nil
 }
 
 func WithJWTAuth(handlerFunc http.HandlerFunc, store types.UserStore) http.HandlerFunc {
