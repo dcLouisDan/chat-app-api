@@ -9,72 +9,88 @@ import (
 	"testing"
 
 	"github.com/dclouisDan/chat-app-api/types"
-	"github.com/gorilla/mux"
+	"github.com/gofiber/fiber/v2"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestUserServiceHandlers(t *testing.T) {
 	userStore := &mockUserStore{}
 	handler := NewHandler(userStore)
 
-  t.Run("should fail if user payload is invalid", func(t *testing.T) {
-    payload := types.RegisterUserPayload{
-      FirstName: "user",
-      LastName: "client",
-      Email: "invalid",
-      Password: "asd",
-    }
-    marshalled, _ := json.Marshal(payload)
-    req, err := http.NewRequest(http.MethodPost, "/register", bytes.NewBuffer(marshalled))
-    if err != nil {
-      t.Fatal(err)
-    }
+	app := fiber.New()
 
-    rr := httptest.NewRecorder()
-    router := mux.NewRouter()
+	// Register routes with Fiber app
+	handler.RegisterRoutes(app)
 
-    router.HandleFunc("/register", handler.handleRegister)
-    router.ServeHTTP(rr, req)
+	t.Run("should fail if user payload is invalid", func(t *testing.T) {
+		payload := types.RegisterUserPayload{
+			FirstName: "user",
+			LastName:  "client",
+			Email:     "invalid",
+			Password:  "asd",
+		}
+		marshalled, _ := json.Marshal(payload)
+		req := httptest.NewRequest(http.MethodPost, "/register", bytes.NewBuffer(marshalled))
+		req.Header.Set("Content-Type", "application/json") // Set content type JSON
 
-    if rr.Code != http.StatusBadRequest {
-      t.Errorf("expected status code %d, got %d", http.StatusBadRequest, rr.Code)
-    }
-  })
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
 
-  t.Run("should correctly register the user", func(t *testing.T) {
-    payload := types.RegisterUserPayload{
-      FirstName: "user",
-      LastName: "client",
-      Email: "user@email.com",
-      Password: "asd",
-    }
-    marshalled, _ := json.Marshal(payload)
-    req, err := http.NewRequest(http.MethodPost, "/register", bytes.NewBuffer(marshalled))
-    if err != nil {
-      t.Fatal(err)
-    }
+    assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "expected status code %d, got %d", http.StatusBadRequest, resp.StatusCode)
+	})
 
-    rr := httptest.NewRecorder()
-    router := mux.NewRouter()
+	t.Run("should correctly register the user", func(t *testing.T) {
+		payload := types.RegisterUserPayload{
+			FirstName: "user",
+			LastName:  "client",
+			Email:     "user@email.com",
+			Password:  "asd",
+		}
+		marshalled, _ := json.Marshal(payload)
+		req := httptest.NewRequest(http.MethodPost, "/register", bytes.NewBuffer(marshalled))
+		req.Header.Set("Content-Type", "application/json") // Set content type JSON
 
-    router.HandleFunc("/register", handler.handleRegister)
-    router.ServeHTTP(rr, req)
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+    
+    assert.Equal(t, http.StatusCreated, resp.StatusCode, "expected status code %d, got %d", http.StatusCreated, resp.StatusCode)
+	})
 
-    if rr.Code != http.StatusCreated {
-      t.Errorf("expected status code %d, got %d", http.StatusCreated, rr.Code)
-    }
-  })
+  t.Run("should fail if invalid credentials are provided", func(t *testing.T) {
+	payload := types.LoginUserPayload{
+		Email:    "user@email.com",
+		Password: "wrongpassword",
+	}
+	marshalled, _ := json.Marshal(payload)
+	req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewBuffer(marshalled))
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := app.Test(req)
+	assert.NoError(t, err, "error testing request")
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "expected status code %d, got %d", http.StatusBadRequest, resp.StatusCode)
+})
+
 }
 
 type mockUserStore struct{}
 
 func (m *mockUserStore) GetUserByEmail(email string) (*types.User, error) {
-  return nil, fmt.Errorf("user not found")
+	return nil, fmt.Errorf("user not found")
 }
 
 func (m *mockUserStore) GetUserByID(id int) (*types.User, error) {
 	return nil, nil
 }
 
-func (m *mockUserStore)CreateUser(types.User) error {
+func (m *mockUserStore) CreateUser(user types.User) error {
 	return nil
 }
+

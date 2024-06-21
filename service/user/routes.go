@@ -3,7 +3,6 @@ package user
 import (
 	"fmt"
 	"log"
-	"net/http"
 	"time"
 
 	"github.com/dclouisDan/chat-app-api/config"
@@ -11,7 +10,7 @@ import (
 	"github.com/dclouisDan/chat-app-api/types"
 	"github.com/dclouisDan/chat-app-api/utils"
 	"github.com/go-playground/validator/v10"
-	"github.com/gorilla/mux"
+	"github.com/gofiber/fiber/v2"
 )
 
 type Handler struct {
@@ -22,90 +21,98 @@ func NewHandler(store types.UserStore) *Handler {
 	return &Handler{store: store}
 }
 
-func (h *Handler) RegisterRoutes(router *mux.Router) {
-	router.HandleFunc("/login", h.handleLogin).Methods(http.MethodPost)
-	router.HandleFunc("/register", h.handleRegister).Methods(http.MethodPost)
-  router.HandleFunc("/profile", auth.WithJWTAuth(h.handleProfile, h.store)).Methods(http.MethodGet)
+func (h *Handler) RegisterRoutes(router fiber.Router) {
+	router.Post("/login", h.handleLogin)
+	router.Post("/register", h.handleRegister)
+	router.Get("/profile", auth.WithJWTAuth(h.handleProfile, h.store))
 }
 
 // User Login
-func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) handleLogin(c *fiber.Ctx) error {
 	var payload types.LoginUserPayload
 
 	// parse payload
-	if err := utils.ParseJSON(r, &payload); err != nil {
+	if err := c.BodyParser(&payload); err != nil {
 		log.Printf("Parse error: %s", err.Error())
-		utils.WriteError(w, http.StatusBadRequest, err)
-		return
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
+		})
 	}
 
 	// validate payload
 	if err := utils.Validator.Struct(payload); err != nil {
 		errors := err.(validator.ValidationErrors)
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid payload %v", errors))
-		return
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": fmt.Sprintf("invalid payload %v", errors),
+		})
 	}
 
 	// get user by email
 	u, err := h.store.GetUserByEmail(payload.Email)
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("not found, invalid email or password"))
-		return
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "not found, invalid email or password",
+		})
 	}
 
 	if !auth.ComparePasswords(u.Password, []byte(payload.Password)) {
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("not found, invalid email or password"))
-		return
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "not found, invalid email or password",
+		})
 	}
 
 	secret := []byte(config.Envs.JWTSecret)
-	token, expireAt,err := auth.CreateJWT(secret, u.ID)
+	token, expireAt, err := auth.CreateJWT(secret, u.ID)
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, err)
-		return
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
+		})
 	}
 
-  http.SetCookie(w, &http.Cookie{
-    Name: "token",
-    Value: token,
-    Expires: time.Unix(expireAt, 0),
-    HttpOnly: true,
+	c.Cookie(&fiber.Cookie{
+		Name:     "token",
+		Value:    token,
+		Expires:  time.Unix(expireAt, 0),
+		HTTPOnly: true,
+	})
+  
+  return c.Status(fiber.StatusOK).JSON(fiber.Map{
+    "token": token,
   })
-
-	err = utils.WriteJSON(w, http.StatusOK, map[string]string{"token": token})
-	if err != nil {
-		log.Printf("Write JSON error: %s", err.Error())
-	}
 }
 
 // User Registration
-func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) handleRegister(c *fiber.Ctx) error {
 	var payload types.RegisterUserPayload
 
 	// parse payload
-	if err := utils.ParseJSON(r, &payload); err != nil {
+	if err := c.BodyParser(&payload); err != nil {
 		log.Printf("Parse error: %s", err.Error())
-		utils.WriteError(w, http.StatusBadRequest, err)
-		return
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
+		})
 	}
 
 	// validate payload
 	if err := utils.Validator.Struct(payload); err != nil {
 		errors := err.(validator.ValidationErrors)
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid payload %v", errors))
-		return
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+      "error" : fmt.Sprintf("invalid payload %v", errors),
+    })
 	}
 
 	_, err := h.store.GetUserByEmail(payload.Email)
 	if err == nil {
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("user with email %s already exists", payload.Email))
-		return
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+      "error" : fmt.Sprintf("user with email %s already exists", payload.Email),
+    })
 	}
 
 	hashedPassword, err := auth.HashPassword(payload.Password)
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, err)
-		return
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+      "error" : err.Error(),
+    })
 	}
 
 	err = h.store.CreateUser(types.User{
@@ -115,29 +122,27 @@ func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
 		Password:  hashedPassword,
 	})
 	if err != nil {
-	  utils.WriteError(w, http.StatusBadRequest, err)
-    return
-  }
-
-	err = utils.WriteJSON(w, http.StatusCreated, nil)
-	if err != nil {
-		log.Printf("Write JSON error: %s", err.Error())
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+      "error" : err.Error(),
+    })
 	}
+
+  
+  return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+    "message" : "user created.",
+  })
 }
 
 // Account profile
-func (h *Handler) handleProfile(w http.ResponseWriter, r *http.Request) {
-  userID := auth.GetIDFromContext(r.Context())
+func (h *Handler) handleProfile(c *fiber.Ctx) error {
+	userID := auth.GetIDFromContext(c)
 
-  u, err := h.store.GetUserByID(userID)
-  if err != nil {
-    utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("user no found"))
-    return
-  }
-  
-  err = utils.WriteJSON(w, http.StatusCreated, u)
+	u, err := h.store.GetUserByID(userID)
 	if err != nil {
-		log.Printf("Write JSON error: %s", err.Error())
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+      "error" : "user not found",
+    })
 	}
-
+  
+  return c.Status(fiber.StatusOK).JSON(u)
 }

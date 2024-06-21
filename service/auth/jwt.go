@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/dclouisDan/chat-app-api/config"
 	"github.com/dclouisDan/chat-app-api/types"
 	"github.com/dclouisDan/chat-app-api/utils"
+	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -34,21 +34,19 @@ func CreateJWT(secret []byte, userID int) (string, int64, error) {
 	return tokenString, expireAt, nil
 }
 
-func WithJWTAuth(handlerFunc http.HandlerFunc, store types.UserStore) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		tokenString := utils.GetTokenFromRequest(r)
+func WithJWTAuth(handlerFunc fiber.Handler, store types.UserStore) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		tokenString := utils.GetTokenFromRequest(c)
 
 		token, err := validateJWT(tokenString)
 		if err != nil {
 			log.Printf("failed to validate token: %s", err.Error())
-			permissionDenied(w)
-			return
+			return permissionDenied(c)
 		}
 
 		if !token.Valid {
 			log.Println("invalid token")
-			permissionDenied(w)
-			return
+			return permissionDenied(c)
 		}
 
 		claims := token.Claims.(jwt.MapClaims)
@@ -58,15 +56,13 @@ func WithJWTAuth(handlerFunc http.HandlerFunc, store types.UserStore) http.Handl
 		u, err := store.GetUserByID(userID)
 		if err != nil {
 			log.Printf("failed to get user by id: %v", err)
-			permissionDenied(w)
-			return
+			return permissionDenied(c)
 		}
 
-		ctx := r.Context()
-		ctx = context.WithValue(ctx, UserKey, u.ID)
-		r = r.WithContext(ctx)
+		ctx := context.WithValue(c.UserContext(), UserKey, u.ID)
+		c.SetUserContext(ctx)
 
-		handlerFunc(w, r)
+		return handlerFunc(c)
 	}
 }
 
@@ -80,12 +76,14 @@ func validateJWT(tokenString string) (*jwt.Token, error) {
 	})
 }
 
-func permissionDenied(w http.ResponseWriter) {
-	utils.WriteError(w, http.StatusForbidden, fmt.Errorf("permission denied"))
+func permissionDenied(c *fiber.Ctx) error {
+	return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+		"error": "Permission Denied",
+	})
 }
 
-func GetIDFromContext(ctx context.Context) int {
-	userID, ok := ctx.Value(UserKey).(int)
+func GetIDFromContext(c *fiber.Ctx) int {
+	userID, ok := c.UserContext().Value(UserKey).(int)
 	if !ok {
 		return -1
 	}

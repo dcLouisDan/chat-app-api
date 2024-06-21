@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/gofiber/fiber/v2"
 )
 
 var Validator = validator.New()
@@ -33,10 +34,10 @@ func ParseJSON(r *http.Request, v any) error {
 	return json.NewDecoder(r.Body).Decode(v)
 }
 
-func GetTokenFromRequest(r *http.Request) string {
-	tokenAuth := r.Header.Get("Authorization")
-	tokenQuery := r.URL.Query().Get("token")
-
+func GetTokenFromRequest(c *fiber.Ctx) string {
+	tokenAuth := c.Get("Authorization")
+	tokenQuery := c.Query("token")
+  
 	if tokenAuth != "" {
 		parts := strings.Split(tokenAuth, " ")
 		if len(parts) != 2 || parts[0] != "Bearer" {

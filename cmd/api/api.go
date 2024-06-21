@@ -3,11 +3,10 @@ package api
 import (
 	"database/sql"
 	"log"
-	"net/http"
 
 	"github.com/dclouisDan/chat-app-api/service/user"
-	"github.com/gorilla/handlers"
-	"github.com/gorilla/mux"
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 )
 
 type APIServer struct {
@@ -20,19 +19,19 @@ func NewAPIServer(addr string, db *sql.DB) *APIServer {
 }
 
 func (s *APIServer) Run() error {
-	router := mux.NewRouter()
-	subrouter := router.PathPrefix("/chat-app-api/v1").Subrouter()
+	app := fiber.New()
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: "*",
+		AllowMethods: "POST, PUT, DELETE, GET",
+		AllowHeaders: "Content-Type, Authorization",
+	}))
+
+  api := app.Group("/chat-app-api/v1")
 
 	userStore := user.NewStore(s.db)
 	userHandler := user.NewHandler(userStore)
-	userHandler.RegisterRoutes(subrouter)
-
+	userHandler.RegisterRoutes(api)
+  
 	log.Println("Listening on:", s.addr)
-	return http.ListenAndServe(s.addr,
-		handlers.CORS(
-			handlers.AllowedOrigins([]string{"*"}),
-			handlers.AllowedMethods([]string{"POST", "PUT", "DELETE", "GET"}),
-			handlers.AllowedHeaders([]string{"Content-Type", "Authorization"}),
-		)(router),
-	)
+  return app.Listen(s.addr)
 }
