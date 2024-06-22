@@ -32,9 +32,6 @@ func (s *Store) GetUserByEmail(email string) (*types.User, error) {
 	if u.ID == 0 {
 		return nil, fmt.Errorf("User not found.")
 	}
-	if u.ID == 0 {
-		return nil, fmt.Errorf("User not found.")
-	}
 
 	return u, nil
 }
@@ -77,6 +74,7 @@ func scanRowIntoUser(rows *sql.Rows) (*types.User, error) {
 		&user.LastName,
 		&user.Email,
 		&user.Password,
+		&user.ProfilePicture,
 		&user.CreatedAt,
 	)
 	if err != nil {

@@ -1,6 +1,9 @@
 package types
 
-import "time"
+import (
+	"database/sql"
+	"time"
+)
 
 type UserStore interface {
 	GetUserByEmail(email string) (*User, error)
@@ -9,12 +12,13 @@ type UserStore interface {
 }
 
 type User struct {
-	ID        int       `json:"id"`
-	FirstName string    `json:"firstName"`
-	LastName  string    `json:"lastName"`
-	Email     string    `json:"email"`
-	Password  string    `json:"password"`
-	CreatedAt time.Time `json:"createdAt"`
+	ID             int            `json:"id"`
+	FirstName      string         `json:"firstName"`
+	LastName       string         `json:"lastName"`
+	Email          string         `json:"email"`
+	Password       string         `json:"password"`
+	ProfilePicture sql.NullString `json:"profilePicture"`
+	CreatedAt      time.Time      `json:"createdAt"`
 }
 
 type RegisterUserPayload struct {

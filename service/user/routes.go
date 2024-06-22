@@ -50,8 +50,9 @@ func (h *Handler) handleLogin(c *fiber.Ctx) error {
 	// get user by email
 	u, err := h.store.GetUserByEmail(payload.Email)
 	if err != nil {
+    log.Printf("error: %v", err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "not found, invalid email or password",
+			"error": "email not found, invalid email or password",
 		})
 	}
 
@@ -75,10 +76,11 @@ func (h *Handler) handleLogin(c *fiber.Ctx) error {
 		Expires:  time.Unix(expireAt, 0),
 		HTTPOnly: true,
 	})
-  
-  return c.Status(fiber.StatusOK).JSON(fiber.Map{
-    "token": token,
-  })
+	log.Print("login success")
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"token": token,
+	})
 }
 
 // User Registration
@@ -97,22 +99,22 @@ func (h *Handler) handleRegister(c *fiber.Ctx) error {
 	if err := utils.Validator.Struct(payload); err != nil {
 		errors := err.(validator.ValidationErrors)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-      "error" : fmt.Sprintf("invalid payload %v", errors),
-    })
+			"error": fmt.Sprintf("invalid payload %v", errors),
+		})
 	}
 
 	_, err := h.store.GetUserByEmail(payload.Email)
 	if err == nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-      "error" : fmt.Sprintf("user with email %s already exists", payload.Email),
-    })
+			"error": fmt.Sprintf("user with email %s already exists", payload.Email),
+		})
 	}
 
 	hashedPassword, err := auth.HashPassword(payload.Password)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-      "error" : err.Error(),
-    })
+			"error": err.Error(),
+		})
 	}
 
 	err = h.store.CreateUser(types.User{
@@ -123,14 +125,13 @@ func (h *Handler) handleRegister(c *fiber.Ctx) error {
 	})
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-      "error" : err.Error(),
-    })
+			"error": err.Error(),
+		})
 	}
 
-  
-  return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-    "message" : "user created.",
-  })
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"message": "user created.",
+	})
 }
 
 // Account profile
@@ -140,9 +141,9 @@ func (h *Handler) handleProfile(c *fiber.Ctx) error {
 	u, err := h.store.GetUserByID(userID)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-      "error" : "user not found",
-    })
+			"error": "user not found",
+		})
 	}
-  
-  return c.Status(fiber.StatusOK).JSON(u)
+
+	return c.Status(fiber.StatusOK).JSON(u)
 }
