@@ -22,11 +22,12 @@ func (s *APIServer) Run() error {
 	app := fiber.New()
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "*",
-		AllowMethods: "POST, PUT, DELETE, GET",
-		AllowHeaders: "Content-Type, Authorization",
+		AllowMethods: "POST,PUT,DELETE,GET,OPTIONS",
+		AllowHeaders: "Origin, Accept, Content-Type, Authorization",
 	}))
 
   api := app.Group("/chat-app-api/v1")
+  api.Static("/", "./web/static")
 
 	userStore := user.NewStore(s.db)
 	userHandler := user.NewHandler(userStore)

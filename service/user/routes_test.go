@@ -94,3 +94,7 @@ func (m *mockUserStore) CreateUser(user types.User) error {
 	return nil
 }
 
+func (m *mockUserStore) UpdateUserProfilePicture(userID int, path string) error {
+  return nil
+}
+

@@ -65,12 +65,20 @@ func (s *Store) CreateUser(user types.User) error {
 	return nil
 }
 
+func (s *Store) UpdateUserProfilePicture(userID int, path string) error {
+  _, err := s.db.Exec("UPDATE users SET profilePicture = ? WHERE id = ?;", path, userID)
+  if err != nil {
+    return err
+  }
+  return nil
+}
+
 func scanRowIntoUser(rows *sql.Rows) (*types.User, error) {
 	user := new(types.User)
 
 	err := rows.Scan(
 		&user.ID,
-		&user.FirstName,
+    &user.FirstName,
 		&user.LastName,
 		&user.Email,
 		&user.Password,

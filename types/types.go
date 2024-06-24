@@ -9,6 +9,7 @@ type UserStore interface {
 	GetUserByEmail(email string) (*User, error)
 	GetUserByID(id int) (*User, error)
 	CreateUser(User) error
+  UpdateUserProfilePicture(userID int, path string) error
 }
 
 type User struct {
