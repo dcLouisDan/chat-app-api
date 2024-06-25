@@ -26,6 +26,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	router.Post("/login", h.handleLogin)
 	router.Post("/register", h.handleRegister)
 	router.Post("/profile/updateProfilePhoto", auth.WithJWTAuth(h.handleProfilePictureUpdate, h.store))
+	router.Post("/profile/update", auth.WithJWTAuth(h.handleProfileUpdate, h.store))
 	router.Get("/profile", auth.WithJWTAuth(h.handleProfile, h.store))
 }
 
@@ -148,6 +149,60 @@ func (h *Handler) handleProfile(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(u)
+}
+
+// Account profile update
+func (h *Handler) handleProfileUpdate(c *fiber.Ctx) error {
+	var payload types.UpdateUserPayload
+
+	// parse payload
+	if err := c.BodyParser(&payload); err != nil {
+		log.Printf("Parse error: %s", err.Error())
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	// validate payload
+	if err := utils.Validator.Struct(payload); err != nil {
+		errors := err.(validator.ValidationErrors)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": fmt.Sprintf("invalid payload %v", errors),
+		})
+	}
+
+  // Check if email exists
+	_, err := h.store.GetUserByEmail(payload.Email)
+	if err == nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": fmt.Sprintf("user with email %s already exists", payload.Email),
+		})
+	}
+
+	userID := auth.GetIDFromContext(c)
+
+	_, err = h.store.GetUserByID(userID)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "user not found",
+		})
+	}
+
+  err = h.store.UpdateUser(types.User{
+    ID: userID,
+    FirstName: payload.FirstName,
+    LastName: payload.LastName,
+    Email: payload.Email,
+  })
+  if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+  }
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+    "message": "user account updated",
+  })
 }
 
 // Update profile picture
