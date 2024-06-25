@@ -171,9 +171,9 @@ func (h *Handler) handleProfileUpdate(c *fiber.Ctx) error {
 		})
 	}
 
-  // Check if email exists
-	_, err := h.store.GetUserByEmail(payload.Email)
-	if err == nil {
+	// Check if email exists
+	u, err := h.store.GetUserByEmail(payload.Email)
+	if err == nil && u.Email != payload.Email {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": fmt.Sprintf("user with email %s already exists", payload.Email),
 		})
@@ -188,21 +188,21 @@ func (h *Handler) handleProfileUpdate(c *fiber.Ctx) error {
 		})
 	}
 
-  err = h.store.UpdateUser(types.User{
-    ID: userID,
-    FirstName: payload.FirstName,
-    LastName: payload.LastName,
-    Email: payload.Email,
-  })
-  if err != nil {
+	err = h.store.UpdateUser(types.User{
+		ID:        userID,
+		FirstName: payload.FirstName,
+		LastName:  payload.LastName,
+		Email:     payload.Email,
+	})
+	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": err.Error(),
 		})
-  }
+	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-    "message": "user account updated",
-  })
+		"message": "user account updated",
+	})
 }
 
 // Update profile picture
